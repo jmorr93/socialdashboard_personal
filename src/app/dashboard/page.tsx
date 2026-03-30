@@ -99,25 +99,29 @@ export default function OverviewPage() {
       .order("date", { ascending: true });
 
     if (metrics && tiktok && instagram) {
+      // Normalize dates — Metricool stores full ISO datetimes, extract just the date part
       const byDate = new Map<string, { tiktokF: number; instagramF: number; tiktokE: number; instagramE: number }>();
       for (const m of metrics) {
-        const key = m.date;
+        const key = (m.date || "").split("T")[0];
+        if (!key) continue;
         const existing = byDate.get(key) || { tiktokF: 0, instagramF: 0, tiktokE: 0, instagramE: 0 };
         if (m.platform_id === tiktok.id) {
           existing.tiktokF = m.follower_count || 0;
-          existing.tiktokE = m.total_engagement || m.total_impressions || 0;
+          existing.tiktokE = m.total_engagement || 0;
         } else if (m.platform_id === instagram.id) {
           existing.instagramF = m.follower_count || 0;
-          existing.instagramE = m.total_engagement || m.total_impressions || 0;
+          existing.instagramE = m.total_engagement || 0;
         }
         byDate.set(key, existing);
       }
 
       const fmtDate = (d: string) =>
-        new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+      const sortedDates = Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b));
 
       setFollowerGrowth(
-        Array.from(byDate.entries()).map(([date, v]) => ({
+        sortedDates.map(([date, v]) => ({
           date: fmtDate(date),
           tiktok: v.tiktokF,
           instagram: v.instagramF,
@@ -125,7 +129,7 @@ export default function OverviewPage() {
       );
 
       setEngagementData(
-        Array.from(byDate.entries()).map(([date, v]) => ({
+        sortedDates.map(([date, v]) => ({
           date: fmtDate(date),
           tiktok: v.tiktokE,
           instagram: v.instagramE,

@@ -407,33 +407,73 @@ export async function fetchTimeline(
 
 /**
  * Fetch account-level metrics by combining multiple timeline calls.
+ *
+ * Valid TikTok metrics: videos, views, comments, shares, interactions, likes, reach, engagement, impressionSources, averageVideoViews
+ * Valid Instagram metrics (subject=account): Followers, delta_followers, impressions, reach, profile_views, postsCount, postsInteractions, views, accounts_engaged, clicks_total, website_clicks
  */
 export async function fetchAccountMetrics(
   platform: "tiktok" | "instagram",
   dateFrom: string,
   dateTo: string
 ): Promise<NormalisedAccountMetric[]> {
-  // TikTok valid metrics: videos, views, comments, shares, interactions, likes, reach, engagement, impressionSources, averageVideoViews
-  // Instagram requires subject param: reels, posts, stories, competitors, account
-  const subject = platform === "instagram" ? "account" : undefined;
+  const tz = "America/Chicago";
 
-  const [viewsRaw, reachRaw, engagementRaw] = await Promise.all([
-    fetchTimeline(platform, "views", dateFrom, dateTo, "America/Chicago", subject),
-    fetchTimeline(platform, "reach", dateFrom, dateTo, "America/Chicago", subject).catch(() => [] as MetricoolTimelineEntry[]),
-    fetchTimeline(platform, "engagement", dateFrom, dateTo, "America/Chicago", subject).catch(() => [] as MetricoolTimelineEntry[]),
+  if (platform === "instagram") {
+    const [followersRaw, viewsRaw, reachRaw, interactionsRaw] = await Promise.all([
+      fetchTimeline(platform, "Followers", dateFrom, dateTo, tz, "account").catch(() => [] as MetricoolTimelineEntry[]),
+      fetchTimeline(platform, "views", dateFrom, dateTo, tz, "account").catch(() => [] as MetricoolTimelineEntry[]),
+      fetchTimeline(platform, "reach", dateFrom, dateTo, tz, "account").catch(() => [] as MetricoolTimelineEntry[]),
+      fetchTimeline(platform, "postsInteractions", dateFrom, dateTo, tz, "account").catch(() => [] as MetricoolTimelineEntry[]),
+    ]);
+
+    // Merge all dates into a single map
+    const allDates = new Set([
+      ...followersRaw.map((e) => e.dateTime),
+      ...viewsRaw.map((e) => e.dateTime),
+      ...reachRaw.map((e) => e.dateTime),
+      ...interactionsRaw.map((e) => e.dateTime),
+    ]);
+    const followersMap = new Map(followersRaw.map((e) => [e.dateTime, e.value]));
+    const viewsMap = new Map(viewsRaw.map((e) => [e.dateTime, e.value]));
+    const reachMap = new Map(reachRaw.map((e) => [e.dateTime, e.value]));
+    const interactionsMap = new Map(interactionsRaw.map((e) => [e.dateTime, e.value]));
+
+    return Array.from(allDates).sort().map((date) => ({
+      platform,
+      date,
+      followers: followersMap.get(date) ?? 0,
+      followersDelta: 0,
+      profileViews: null,
+      reach: reachMap.get(date) ?? null,
+      impressions: viewsMap.get(date) ?? null,
+      engagement: interactionsMap.get(date) ?? null,
+    }));
+  }
+
+  // TikTok — no follower timeline available
+  const [viewsRaw, reachRaw, interactionsRaw] = await Promise.all([
+    fetchTimeline(platform, "views", dateFrom, dateTo, tz).catch(() => [] as MetricoolTimelineEntry[]),
+    fetchTimeline(platform, "reach", dateFrom, dateTo, tz).catch(() => [] as MetricoolTimelineEntry[]),
+    fetchTimeline(platform, "interactions", dateFrom, dateTo, tz).catch(() => [] as MetricoolTimelineEntry[]),
   ]);
 
+  const allDates = new Set([
+    ...viewsRaw.map((e) => e.dateTime),
+    ...reachRaw.map((e) => e.dateTime),
+    ...interactionsRaw.map((e) => e.dateTime),
+  ]);
+  const viewsMap = new Map(viewsRaw.map((e) => [e.dateTime, e.value]));
   const reachMap = new Map(reachRaw.map((e) => [e.dateTime, e.value]));
-  const engagementMap = new Map(engagementRaw.map((e) => [e.dateTime, e.value]));
+  const interactionsMap = new Map(interactionsRaw.map((e) => [e.dateTime, e.value]));
 
-  return viewsRaw.map((entry) => ({
+  return Array.from(allDates).sort().map((date) => ({
     platform,
-    date: entry.dateTime,
-    followers: 0, // Follower count not available via timeline; will pull from simpleProfiles
+    date,
+    followers: 0, // TikTok doesn't expose follower timeline via Metricool
     followersDelta: 0,
     profileViews: null,
-    reach: reachMap.get(entry.dateTime) ?? null,
-    impressions: entry.value, // views as impressions proxy
-    engagement: engagementMap.get(entry.dateTime) ?? null,
+    reach: reachMap.get(date) ?? null,
+    impressions: viewsMap.get(date) ?? null,
+    engagement: interactionsMap.get(date) ?? null,
   }));
 }

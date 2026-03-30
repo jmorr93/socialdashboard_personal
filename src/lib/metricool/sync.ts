@@ -130,17 +130,19 @@ export async function syncAccountMetrics(
   }
 
   const dateTo = new Date().toISOString().split("T")[0];
-  const dateFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const dateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
 
   const metrics = await fetchAccountMetrics(platformName, dateFrom, dateTo);
 
   for (const day of metrics) {
+    // Normalize date — Metricool returns full ISO datetimes, extract just YYYY-MM-DD
+    const dateOnly = day.date.split("T")[0];
     await supabase.from("account_metrics_daily").upsert(
       {
         platform_id: (platform as Record<string, string>).id,
-        date: day.date,
+        date: dateOnly,
         follower_count: day.followers,
         follower_delta: day.followersDelta,
         profile_views: day.profileViews || null,
