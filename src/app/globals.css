@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* @deinfluence_her brand palette */
+  --primary: #C10000;
+  --secondary: #CD4146;
+  --ink: #1A1A1A;
+  --paper: #F5F3F0;
+  --stone: #8C8C8C;
+  --blush: #F2C4C4;
+  --dusty-rose: #E8B4B4;
+
+  /* Semantic mappings */
+  --background: #EDEAE7;
+  --foreground: #1A1A1A;
+  --sidebar-bg: #1A1A1A;
+  --sidebar-text: #E8B4B4;
+  --sidebar-active: #C10000;
+  --card-bg: #F5F3F0;
+  --card-border: #E8D5D5;
+  --tiktok: #00f2ea;
+  --instagram: #CD4146;
 }
 
 @theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-stone: var(--stone);
+  --color-blush: var(--blush);
+  --color-dusty-rose: var(--dusty-rose);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-tiktok: var(--tiktok);
+  --color-instagram: var(--instagram);
+  --font-sans: 'Neue Montreal', 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
