@@ -127,6 +127,31 @@ export interface MetricoolInstagramPost {
 }
 
 // ---------------------------------------------------------------------------
+// Instagram reel shape (from /analytics/reels/instagram)
+// ---------------------------------------------------------------------------
+export interface MetricoolInstagramReel {
+  reelId: string;
+  userId: string;
+  type: string;
+  publishedAt: { dateTime: string; timezone: string };
+  url: string;
+  content: string;
+  imageUrl: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  interactions: number;
+  engagement: number;
+  reach: number;
+  saved: number;
+  impressionsTotal: number;
+  views: number;
+  averageWatchTime: number | null;
+  videoViewTotalTime: number | null;
+  reelsSkipRate: number | null;
+}
+
+// ---------------------------------------------------------------------------
 // Timeline shape (from /analytics/timelines)
 // ---------------------------------------------------------------------------
 export interface MetricoolTimelineEntry {
@@ -274,7 +299,7 @@ export async function fetchInstagramReels(
   dateTo: string
 ): Promise<NormalisedVideo[]> {
   try {
-    const res = await metricoolFetch<{ data: MetricoolInstagramPost[] }>({
+    const res = await metricoolFetch<{ data: MetricoolInstagramReel[] }>({
       path: "/analytics/reels/instagram",
       params: {
         from: `${dateFrom}T00:00:00`,
@@ -282,11 +307,28 @@ export async function fetchInstagramReels(
       },
     });
 
-    return (res.data || []).map((p) =>
-      normaliseInstagramPost({ ...p, type: p.type || "reel" })
-    );
+    return (res.data || []).map((r) => ({
+      id: r.reelId,
+      platform: "instagram" as const,
+      title: r.content || null,
+      description: r.content || null,
+      thumbnail: r.imageUrl || null,
+      duration: null,
+      publishedAt: r.publishedAt?.dateTime || "",
+      contentType: r.type || "REELS_VIDEO",
+      metrics: {
+        views: r.views ?? 0,
+        likes: r.likes ?? 0,
+        comments: r.comments ?? 0,
+        shares: r.shares ?? 0,
+        saves: r.saved ?? 0,
+        avgWatchTime: r.averageWatchTime ?? null,
+        reach: r.reach ?? null,
+        impressions: r.impressionsTotal ?? null,
+        engagement: r.engagement ?? null,
+      },
+    }));
   } catch {
-    // Endpoint may not exist — fall back gracefully
     console.warn("Metricool /analytics/reels/instagram not available, skipping reels fetch");
     return [];
   }

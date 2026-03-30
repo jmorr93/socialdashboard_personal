@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Users, Eye, BarChart3, Heart, Image, Film } from "lucide-react";
+import { Users, Eye, BarChart3, Heart, Image, Film, Calendar } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { FollowerGrowthChart } from "@/components/charts/follower-growth-chart";
 import { EngagementChart } from "@/components/charts/engagement-chart";
+
+type DatePreset = "30" | "60" | "90" | "custom";
 
 interface PlatformStats {
   followers: number;
@@ -15,6 +17,12 @@ interface PlatformStats {
   videoCount: number;
   postCount: number;
   reelCount: number;
+}
+
+function daysAgoISO(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
 }
 
 export default function OverviewPage() {
@@ -28,21 +36,35 @@ export default function OverviewPage() {
     Array<{ date: string; tiktok: number; instagram: number }>
   >([]);
 
+  const [datePreset, setDatePreset] = useState<DatePreset>("30");
+  const [customFrom, setCustomFrom] = useState(daysAgoISO(30));
+  const [customTo, setCustomTo] = useState(new Date().toISOString().split("T")[0]);
+
+  function getDateRange(): { from: string; to: string } {
+    if (datePreset === "custom") {
+      return { from: customFrom, to: customTo };
+    }
+    return { from: daysAgoISO(Number(datePreset)), to: new Date().toISOString().split("T")[0] };
+  }
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [datePreset, customFrom, customTo]);
 
   async function loadData() {
+    const { from, to } = getDateRange();
     const { data: platforms } = await supabase.from("platforms").select("*");
     const tiktok = platforms?.find((p) => p.name === "tiktok");
     const instagram = platforms?.find((p) => p.name === "instagram");
 
-    // Load video stats per platform
+    // Load video stats per platform, filtered by date range
     async function getPlatformStats(platformId: string): Promise<PlatformStats> {
       const { data: videos } = await supabase
         .from("videos")
         .select("view_count, like_count, comment_count, share_count, engagement_rate, content_type")
-        .eq("platform_id", platformId);
+        .eq("platform_id", platformId)
+        .gte("published_at", `${from}T00:00:00`)
+        .lte("published_at", `${to}T23:59:59`);
 
       const vids = videos || [];
       return {
@@ -54,8 +76,8 @@ export default function OverviewPage() {
           0
         ),
         videoCount: vids.length,
-        postCount: vids.filter((v) => !v.content_type?.includes("REEL")).length,
-        reelCount: vids.filter((v) => v.content_type?.includes("REEL")).length,
+        postCount: vids.filter((v) => !v.content_type?.toUpperCase().includes("REEL")).length,
+        reelCount: vids.filter((v) => v.content_type?.toUpperCase().includes("REEL")).length,
       };
     }
 
@@ -69,14 +91,11 @@ export default function OverviewPage() {
     }
 
     // Load account metrics for charts
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-
     const { data: metrics } = await supabase
       .from("account_metrics_daily")
       .select("*")
-      .gte("date", thirtyDaysAgo)
+      .gte("date", from)
+      .lte("date", to)
       .order("date", { ascending: true });
 
     if (metrics && tiktok && instagram) {
@@ -119,7 +138,8 @@ export default function OverviewPage() {
       const { data: videos } = await supabase
         .from("videos")
         .select("published_at, platform_id, like_count, comment_count, share_count")
-        .gte("published_at", thirtyDaysAgo)
+        .gte("published_at", `${from}T00:00:00`)
+        .lte("published_at", `${to}T23:59:59`)
         .order("published_at");
 
       if (videos && videos.length > 0) {
@@ -154,11 +174,58 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold">Overview</h2>
-        <p className="text-stone text-sm mt-1">
-          Your social media performance at a glance
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-2xl font-bold">Overview</h2>
+          <p className="text-stone text-sm mt-1">
+            Your social media performance at a glance
+          </p>
+        </div>
+
+        {/* Date range picker */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar className="w-4 h-4 text-stone" />
+          {(["30", "60", "90"] as DatePreset[]).map((preset) => (
+            <button
+              key={preset}
+              onClick={() => setDatePreset(preset)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                datePreset === preset
+                  ? "bg-primary text-paper border-primary"
+                  : "bg-card-bg text-ink border-card-border hover:border-secondary"
+              }`}
+            >
+              {preset}d
+            </button>
+          ))}
+          <button
+            onClick={() => setDatePreset("custom")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+              datePreset === "custom"
+                ? "bg-primary text-paper border-primary"
+                : "bg-card-bg text-ink border-card-border hover:border-secondary"
+            }`}
+          >
+            Custom
+          </button>
+          {datePreset === "custom" && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="px-2 py-1.5 text-xs border border-card-border rounded-lg bg-card-bg"
+              />
+              <span className="text-stone text-xs">to</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="px-2 py-1.5 text-xs border border-card-border rounded-lg bg-card-bg"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* TikTok stats */}
