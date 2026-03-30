@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync/videos",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/sync/account",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}
