@@ -40,3 +40,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ship-defaults
+.env*
+!.env.example
+!.env*.example
+node_modules/
+.next/
+.venv/
+venv/
+out/
+__pycache__/
+.pytest_cache/
+.DS_Store
+*.zip
+data/raw/
